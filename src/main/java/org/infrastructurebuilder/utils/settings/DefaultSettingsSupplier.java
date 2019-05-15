@@ -34,7 +34,8 @@ import org.apache.maven.settings.building.SettingsBuilder;
 import org.apache.maven.settings.building.SettingsBuildingException;
 import org.apache.maven.settings.building.SettingsBuildingRequest;
 import org.apache.maven.settings.building.SettingsBuildingResult;
-import org.apache.maven.settings.crypto.SettingsDecrypter;
+import org.codehaus.plexus.util.StringUtils;
+import org.infrastructurebuilder.IBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,12 +46,11 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
   public static final String MAVEN_HOME = "MAVEN_HOME";
   public static final String GLOBAL_SETTINGS_FILE = "GLOBAL_SETTINGS_FILE";
   public static final String USER_SETTINGS_FILE = "USER_SETTINGS_FILE";
-  public final static Logger logger = LoggerFactory.getLogger(DefaultSettingsSupplier.class);
-  public static final String HINT = "settings";
 
   public static final String USER_HOME = System.getProperty("user.home");
 
   public static final Path USER_MAVEN_CONFIGURATION_HOME = Paths.get(USER_HOME).resolve(".m2");
+  public static final Path DEFAULT_MAVEN_LOCAL_REPO = USER_MAVEN_CONFIGURATION_HOME.resolve("repository");
 
   public static final Path DEFAULT_USER_SETTINGS_FILE = USER_MAVEN_CONFIGURATION_HOME
       .resolve(DefaultSettingsSupplier.SETTINGS_XML);
@@ -59,19 +59,13 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
       .ofNullable(System.getenv(DefaultSettingsSupplier.MAVEN_HOME)).map(Paths::get)
       .map(x -> x.resolve("conf").resolve(DefaultSettingsSupplier.SETTINGS_XML));
 
-  private final SettingsBuilder settingsBuilder;
-  private final SettingsDecrypter settingsDecrypter;
-  private final EnvSupplier envSupplier;
-  private final PropertiesSupplier propSupplier;
+  private final Map<String, String> env;
   private final Settings settings;
 
   @Inject
   public DefaultSettingsSupplier(EnvSupplier envSupplier, @Named("default") PropertiesSupplier propSupplier,
-      SettingsBuilder settingsBuilder, SettingsDecrypter settingsDecrypter) {
-    this.envSupplier = Objects.requireNonNull(envSupplier);
-    this.propSupplier = Objects.requireNonNull(propSupplier);
-    this.settingsBuilder = Objects.requireNonNull(settingsBuilder);
-    this.settingsDecrypter = Objects.requireNonNull(settingsDecrypter);
+      SettingsBuilder settingsBuilder) {
+    this.env = Objects.requireNonNull(envSupplier).get();
     SettingsBuildingRequest settingsRequest = new DefaultSettingsBuildingRequest();
     log.debug("Got the SettingsBuildingRequest");
     settingsRequest.setGlobalSettingsFile(getGlobalSettingsFile().toFile());
@@ -87,16 +81,14 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
   }
 
   public Path getUserSettingsFile() {
-    Map<String, String> env = envSupplier.get();
     Path p = Optional.ofNullable(Objects.requireNonNull(env).get(DefaultSettingsSupplier.USER_SETTINGS_FILE))
         .map(Paths::get).orElse(DEFAULT_USER_SETTINGS_FILE).toAbsolutePath();
     if (!(Files.exists(p) && Files.isRegularFile(p) && Files.isReadable(p)))
-      throw new RuntimeException("User Settings file " + p.toString() + " is not available");
+      throw new RuntimeException("User Settings file " + p.toString() + " is not a readable, regular file");
     return p;
   }
 
   public Path getGlobalSettingsFile() {
-    Map<String, String> env = envSupplier.get();
     Path p;
     String alternateGlobalSettings = Objects.requireNonNull(env).get(DefaultSettingsSupplier.GLOBAL_SETTINGS_FILE);
     if (alternateGlobalSettings == null) {
@@ -105,8 +97,8 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
         log.warn("No MAVEN_HOME set!!!  Resolving from SDKMAN...");
         String home = System.getProperty("user.home");
         Path sdkMan = Paths.get(home).resolve(".sdkman").resolve("candidates").resolve("maven").resolve("current");
-        if (!Files.isDirectory(sdkMan))
-          throw new RuntimeException("MAVEN_HOME is not set");
+        if (!Files.isSymbolicLink(sdkMan))
+          throw new RuntimeException("MAVEN_HOME is not set to symlink of 'current'");
         mavenHome = sdkMan.toAbsolutePath().toString();
       }
       p = Paths.get(mavenHome).resolve("conf").resolve(DefaultSettingsSupplier.SETTINGS_XML);
@@ -121,12 +113,20 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
   public Settings get() {
     return settings;
   }
+
   public final static Function<SettingsBuildingResult, Settings> logProblems = (
       SettingsBuildingResult settingsResult) -> {
-        settingsResult.getProblems()
-        .forEach(problem -> logger.warn("Problem: " + problem.getMessage() + " @ " + problem.getLocation()));
-        return settingsResult.getEffectiveSettings();
-      };
+    settingsResult.getProblems()
+        .forEach(problem -> log.warn("Problem: " + problem.getMessage() + " @ " + problem.getLocation()));
+    Settings s = settingsResult.getEffectiveSettings();
+    if (StringUtils.isBlank(s.getLocalRepository())) {
+      s.setLocalRepository(DEFAULT_MAVEN_LOCAL_REPO.toAbsolutePath().toString());
+    }
+    Path lp = Paths.get(s.getLocalRepository());
+    if (!Files.exists(lp))
+      IBException.cet.withTranslation(() -> Files.createDirectories(lp));
+    return s;
+  };
 
   public final static BiFunction<SettingsBuilder, SettingsBuildingRequest, Settings> getEffectiveSettingsForRequest = (
       settingsBuilder, settingsRequest) -> {
@@ -137,6 +137,5 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
       throw new RuntimeException(e);
     }
   };
-
 
 }
