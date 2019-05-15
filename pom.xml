@@ -100,7 +100,7 @@
         <groupId>org.sonatype.plugins</groupId>
         <artifactId>nexus-staging-maven-plugin</artifactId>
         <configuration> <!-- TODO failed previously for unknown reasons Remove this and try again next time -->
-          <stagingProgressTimeoutMinutes>10</stagingProgressTimeoutMinutes>
+          <stagingProgressTimeoutMinutes>60</stagingProgressTimeoutMinutes>
         </configuration>
       </plugin>
       <plugin>
