@@ -18,26 +18,27 @@ package org.infrastructurebuilder.utils.settings;
 import static org.infrastructurebuilder.utils.settings.DefaultSettingsSupplier.GLOBAL_SETTINGS_FILE;
 import static org.infrastructurebuilder.utils.settings.DefaultSettingsSupplier.MAVEN_HOME;
 import static org.infrastructurebuilder.utils.settings.DefaultSettingsSupplier.USER_SETTINGS_FILE;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
+import java.util.UUID;
 
 import org.apache.maven.settings.Settings;
 import org.apache.maven.settings.building.DefaultSettingsBuilder;
 import org.apache.maven.settings.building.DefaultSettingsBuildingRequest;
 import org.apache.maven.settings.building.DefaultSettingsProblem;
+import org.apache.maven.settings.building.SettingsBuilder;
 import org.apache.maven.settings.building.SettingsBuildingResult;
 import org.apache.maven.settings.building.SettingsProblem;
 import org.apache.maven.settings.crypto.DefaultSettingsDecrypter;
@@ -49,16 +50,14 @@ import org.codehaus.plexus.classworlds.ClassWorld;
 import org.eclipse.sisu.space.SpaceModule;
 import org.eclipse.sisu.space.URLClassSpace;
 import org.eclipse.sisu.wire.WireModule;
-import org.infrastructurebuilder.utils.settings.HandCraftedEnvSupplier;
-import org.infrastructurebuilder.utils.settings.DefaultSettingsSupplier;
-import org.infrastructurebuilder.utils.settings.PropertiesSupplier;
-import org.infrastructurebuilder.utils.settings.SettingsSupplier;
-import org.infrastructurebuilder.utils.settings.DefaultPropertiesSupplier;
+import org.infrastructurebuilder.util.IBUtils;
+import org.infrastructurebuilder.util.config.WorkingPathSupplier;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.sonatype.plexus.components.sec.dispatcher.PasswordDecryptor;
 
 public class LSCTest {
 
@@ -68,12 +67,16 @@ public class LSCTest {
   private static String gsval;
   private static Map<String, String> defaultEnv;
   private static Path nonSettings;
+  private static Path localRepoSettings;
+  private static Path noLocalRepoSettings;
+  private static WorkingPathSupplier wps = new WorkingPathSupplier();
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
-    target = Paths.get(Optional.ofNullable(System.getProperty("target")).orElse("./target")).toRealPath()
-        .toAbsolutePath();
+    target = wps.getRoot();
     badSettings = target.resolve("test-classes").resolve("bad-settings.xml").toAbsolutePath();
+    noLocalRepoSettings = target.resolve("test-classes").resolve("settings-no-local.xml").toAbsolutePath();
+    localRepoSettings = target.resolve("test-classes").resolve("settings-with-local.xml").toAbsolutePath();
     nonSettings = target.resolve("test-classes").resolve("no-such-settings.xml").toAbsolutePath();
     defaultEnv = System.getenv();
   }
@@ -85,6 +88,7 @@ public class LSCTest {
   private boolean isWindows;
   private org.codehaus.plexus.classworlds.ClassWorld kw;
   private ContainerConfiguration dpcreq;
+  private SettingsBuilder dsb;
 
   @SuppressWarnings({ "rawtypes", "unchecked" })
   protected static void setEnv(Map<String, String> newenv) throws Exception {
@@ -129,8 +133,14 @@ public class LSCTest {
 
     PropertiesSupplier theseProps = c.lookup(PropertiesSupplier.class);
     s = c.lookup(SettingsSupplier.class, "default");
+    dsb = c.lookup(SettingsBuilder.class);
     e = new HandCraftedEnvSupplier();
     p = new DefaultPropertiesSupplier();
+
+    Map<String, PasswordDecryptor> myDecrypters = new HashMap<>();
+    new MyDefaultSecDispatcher(new MyDefaultPlexusCipher(), myDecrypters);
+    new MyDefaultSettingsBuilder();
+    new MyDefaultSettingsDecrypter();
 
   }
 
@@ -152,22 +162,20 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(USER_SETTINGS_FILE, badSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getUserSettingsFile();
   }
 
   @Test(expected = RuntimeException.class)
   public void testLocalWithUnreadable() throws Exception {
     if (isWindows)
-      throw new RuntimeException(); // FIXME Can't get windows to fail right
+      throw new RuntimeException(); // FIXME Can't get windows to fail correctly just yet
 
     badSettings.toFile().setReadable(false);
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(USER_SETTINGS_FILE, badSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     e.setAll(env);
     l.getUserSettingsFile();
   }
@@ -177,8 +185,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(USER_SETTINGS_FILE, nonSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getUserSettingsFile();
   }
 
@@ -187,8 +194,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(USER_SETTINGS_FILE, target.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getUserSettingsFile();
   }
 
@@ -198,8 +204,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(GLOBAL_SETTINGS_FILE, badSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getGlobalSettingsFile();
   }
 
@@ -211,8 +216,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(GLOBAL_SETTINGS_FILE, badSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getGlobalSettingsFile();
   }
 
@@ -221,8 +225,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(GLOBAL_SETTINGS_FILE, nonSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getGlobalSettingsFile();
   }
 
@@ -231,8 +234,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.put(GLOBAL_SETTINGS_FILE, target.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getGlobalSettingsFile();
   }
 
@@ -242,8 +244,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     env.remove(MAVEN_HOME); // Gonna default to try SDKMAN
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     l.getGlobalSettingsFile();
   }
 
@@ -253,20 +254,28 @@ public class LSCTest {
     env.remove(MAVEN_HOME); // Gonna default to try SDKMAN
     System.setProperty("user.home", FileSystems.getDefault().getRootDirectories().iterator().next().toString()); // This could go BADLY
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     e.setAll(env);
     l.getGlobalSettingsFile();
   }
 
+  @Test // Requires SDKMAN install to work
+  public void testLocalNoMavneHomeWithPotentiallyBreakingTest() throws Exception {
+    Map<String, String> env = new HashMap<>(defaultEnv);
+    env.remove(MAVEN_HOME); // Gonna default to try SDKMAN
+    EnvSupplier en = new HandCraftedEnvSupplier(env);
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
+    e.setAll(env);
+    l.getGlobalSettingsFile();
+  }
+
+  @Ignore
   @Test(expected = RuntimeException.class)
   public void testGetEffectiveSettingsWithNull() {
     Map<String, String> env = new HashMap<>(defaultEnv);
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
-    DefaultSettingsSupplier.getEffectiveSettingsForRequest.apply(new DefaultSettingsBuilder(),
-        new DefaultSettingsBuildingRequest());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
+    DefaultSettingsSupplier.getEffectiveSettingsForRequest.apply(this.dsb, new DefaultSettingsBuildingRequest());
   }
 
   @Test(expected = RuntimeException.class)
@@ -274,13 +283,57 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     badSettings.toFile().setReadable(false);
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), new DefaultSettingsBuilder(),
-        new DefaultSettingsDecrypter());
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     DefaultSettingsBuildingRequest sb = new DefaultSettingsBuildingRequest();
     sb.setUserProperties(new Properties());
     sb.setUserSettingsFile(nonSettings.toFile());
     sb.setGlobalSettingsFile(badSettings.toFile());
-    DefaultSettingsSupplier.getEffectiveSettingsForRequest.apply(new DefaultSettingsBuilder(), sb);
+    DefaultSettingsSupplier.getEffectiveSettingsForRequest.apply(this.dsb, sb);
+  }
+
+  @Test
+  public void testWithoutLocalSettings() {
+    Map<String, String> env = new HashMap<>(defaultEnv);
+    env.put(USER_SETTINGS_FILE, noLocalRepoSettings.toString());
+    EnvSupplier en = new HandCraftedEnvSupplier(env);
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
+    assertEquals(DefaultSettingsSupplier.DEFAULT_MAVEN_LOCAL_REPO.toAbsolutePath().toString(), l.get().getLocalRepository());
+  }
+
+  @Test
+  public void testWithLocalSettings() throws IOException {
+    Path ll = wps.get();
+    Path localcopy = wps.get().resolve(UUID.randomUUID().toString());
+    String local = "<settings>" + "<offline>true</offline>" + "<pluginGroups/>" + "<proxies/>" + "<servers/>"
+        + "<mirrors/>" + "<profiles/>" + "<localRepository>" + ll.toString() + "</localRepository></settings>";
+
+    Map<String, String> env = new HashMap<>(defaultEnv);
+    IBUtils.writeString(localcopy, local);
+    env.put(USER_SETTINGS_FILE, localcopy.toString());
+    EnvSupplier en = new HandCraftedEnvSupplier(env);
+    Map<String, String> m = en.get();
+    assertEquals(localcopy.toString(), m.get(USER_SETTINGS_FILE));
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
+    assertEquals(ll.toString(), l.get().getLocalRepository());
+
+  }
+  @Test
+  public void testWithDeletedLocalDirectory() throws IOException {
+    Path ll = wps.get();
+    Path localcopy = wps.get().resolve(UUID.randomUUID().toString());
+    String local = "<settings>" + "<offline>true</offline>" + "<pluginGroups/>" + "<proxies/>" + "<servers/>"
+        + "<mirrors/>" + "<profiles/>" + "<localRepository>" + ll.toString() + "</localRepository></settings>";
+
+    IBUtils.deletePath(ll);
+    Map<String, String> env = new HashMap<>(defaultEnv);
+    IBUtils.writeString(localcopy, local);
+    env.put(USER_SETTINGS_FILE, localcopy.toString());
+    EnvSupplier en = new HandCraftedEnvSupplier(env);
+    Map<String, String> m = en.get();
+    assertEquals(localcopy.toString(), m.get(USER_SETTINGS_FILE));
+    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
+    assertEquals(ll.toString(), l.get().getLocalRepository());
+
   }
 
   @Test

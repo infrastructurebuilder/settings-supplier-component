@@ -15,7 +15,9 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.infrastructurebuilder</groupId>
@@ -30,9 +32,7 @@
   <description>Read settings.xml</description>
   <!-- URL for site gen -->
   <properties>
-    <!-- We are dependent on the underlying Maven code to operate properly.
-      It's impossible to even mock some of this -->
-    <test.coverage.percentage.required>97</test.coverage.percentage.required>
+    <test.coverage.percentage.required>99</test.coverage.percentage.required> <!-- 100, actually -->
   </properties>
   <url>${github.url.base}/${project.artifactId}</url>
   <scm>
@@ -41,6 +41,17 @@
     <developerConnection>scm:git:${git.url}</developerConnection>
     <tag>HEAD</tag>
   </scm>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.infrastructurebuilder.util</groupId>
+        <artifactId>ibcore-bom</artifactId>
+        <version>0.9.0.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>javax.inject</groupId>
@@ -64,7 +75,15 @@
       <artifactId>guice</artifactId>
       <scope>test</scope>
     </dependency>
-
+    <dependency>
+      <groupId>org.infrastructurebuilder</groupId>
+      <artifactId>ibexceptions</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.infrastructurebuilder</groupId>
+      <artifactId>ibcore</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.eclipse.sisu</groupId>
       <artifactId>org.eclipse.sisu.plexus</artifactId>
