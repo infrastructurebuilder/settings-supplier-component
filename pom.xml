@@ -24,7 +24,7 @@
   </parent>
   <groupId>org.infrastructurebuilder.util</groupId>
   <artifactId>settings-supplier-component</artifactId>
-  <version>0.9.2-SNAPSHOT</version>
+  <version>0.9.2</version>
   <packaging>jar</packaging>
   <name>${project.artifactId}</name>
   <description>Read settings.xml</description>
@@ -37,7 +37,7 @@
     <connection>scm:git:${git.url}</connection>
     <url>scm:git:${git.url}</url>
     <developerConnection>scm:git:${git.url}</developerConnection>
-    <tag>HEAD</tag>
+    <tag>settings-supplier-component-0.9.2</tag>
   </scm>
   <dependencyManagement>
     <dependencies>
