@@ -44,7 +44,7 @@
       <dependency>
         <groupId>org.infrastructurebuilder.util</groupId>
         <artifactId>ibcore-bom</artifactId>
-        <version>0.9.1.0-SNAPSHOT</version>
+        <version>0.9.1.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -99,8 +99,10 @@
       <plugin>
         <groupId>org.sonatype.plugins</groupId>
         <artifactId>nexus-staging-maven-plugin</artifactId>
-        <configuration> <!-- TODO failed previously for unknown reasons Remove this and try again next time -->
+        <configuration>
+        <!--  failed previously for unknown reasons Remove this and try again next time
           <stagingProgressTimeoutMinutes>60</stagingProgressTimeoutMinutes>
+         -->
         </configuration>
       </plugin>
       <plugin>
