@@ -1,8 +1,13 @@
-# local-settings-component
-Component to read settings.xml without the full maven encumberance
+# settings-supplier-component
 
-If you have an instance of a PlexusContainer, you can get a `SettingsSupplier` instance from that container.
-It will read the local settings.xml and hand you instances of `Settings`.
+Component to read settings.xml without the *entirety* of full Maven encumberance.  That doesn't mean that this is a very lightweight component
+(dependency-wise); only that it's not pulling in the whole Maven tree just to read a file.  This would probably be a good candidate for an
+OSGi bundle.
+
+If you have an instance of a (`sisu`-backed) `PlexusContainer`, you can get a `SettingsSupplier` instance from that container.
+It will read [ some form of ] the local settings.xml and hand you instances of `Settings`.  This means that you can
+use the `settings.xml` file from Maven as a general supplier of certain important types of runtime configuration, including
+and especially credentials.
 
 # Current Known Behaviors
 
