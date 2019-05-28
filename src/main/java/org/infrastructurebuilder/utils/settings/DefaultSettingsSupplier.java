@@ -15,9 +15,12 @@
  */
 package org.infrastructurebuilder.utils.settings;
 
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,6 +31,16 @@ import java.util.function.Function;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import org.apache.maven.settings.Activation;
+import org.apache.maven.settings.ActivationFile;
+import org.apache.maven.settings.ActivationOS;
+import org.apache.maven.settings.ActivationProperty;
+import org.apache.maven.settings.Mirror;
+import org.apache.maven.settings.Profile;
+import org.apache.maven.settings.Proxy;
+import org.apache.maven.settings.Repository;
+import org.apache.maven.settings.RepositoryPolicy;
+import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.settings.building.DefaultSettingsBuildingRequest;
 import org.apache.maven.settings.building.SettingsBuilder;
@@ -35,9 +48,36 @@ import org.apache.maven.settings.building.SettingsBuildingException;
 import org.apache.maven.settings.building.SettingsBuildingRequest;
 import org.apache.maven.settings.building.SettingsBuildingResult;
 import org.codehaus.plexus.util.StringUtils;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.Xpp3DomWriter;
 import org.infrastructurebuilder.IBException;
+import org.infrastructurebuilder.util.ActivationFileProxy;
+import org.infrastructurebuilder.util.ActivationOSProxy;
+import org.infrastructurebuilder.util.ActivationPropertyProxy;
+import org.infrastructurebuilder.util.ActivationProxy;
+import org.infrastructurebuilder.util.ChecksumPolicy;
+import org.infrastructurebuilder.util.EnvSupplier;
+import org.infrastructurebuilder.util.IBUtils;
+import org.infrastructurebuilder.util.Layout;
+import org.infrastructurebuilder.util.MirrorProxy;
+import org.infrastructurebuilder.util.ProfileProxy;
+import org.infrastructurebuilder.util.PropertiesSupplier;
+import org.infrastructurebuilder.util.ProxyProxy;
+import org.infrastructurebuilder.util.RepositoryPolicyProxy;
+import org.infrastructurebuilder.util.RepositoryProxy;
+import org.infrastructurebuilder.util.ServerProxy;
+import org.infrastructurebuilder.util.SettingsProxy;
+import org.infrastructurebuilder.util.SettingsSupplier;
+import org.infrastructurebuilder.util.UpdatePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import static java.util.Objects.*;
+import static java.util.stream.Collectors.*;
+
+import java.io.StringWriter;
+import java.net.URL;
+
+import static java.util.Optional.*;
 
 @Named
 public class DefaultSettingsSupplier implements SettingsSupplier {
@@ -109,10 +149,105 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
     return p;
   }
 
+  public final static Function<String, Optional<Path>> s2p = (p) -> {
+    return Optional.ofNullable(p).map(Paths::get);
+  };
+
   @Override
-  public Settings get() {
-    return settings;
+  public SettingsProxy get() {
+    return proxyFromSettings.apply(settings);
   }
+
+  public final static Function<Server, ServerProxy> proxyFromServer = (s2) -> {
+    Optional<String> config = ofNullable(s2.getConfiguration()).map(dom -> {
+      StringWriter writer = new StringWriter();
+      Xpp3DomWriter.write(writer, (Xpp3Dom) dom);
+      return writer.toString();
+    });
+    return new ServerProxy(s2.getId(), ofNullable(s2.getUsername()), ofNullable(s2.getPassword()),
+        ofNullable(s2.getPassphrase()), ofNullable(s2.getPrivateKey()).map(Paths::get),
+        ofNullable(s2.getFilePermissions()), ofNullable(s2.getDirectoryPermissions()), config);
+  };
+
+  public final static Function<ActivationFile, Optional<ActivationFileProxy>> proxyFromActFile = (a) -> {
+    return Optional.ofNullable(a)
+        .map(af -> new ActivationFileProxy(s2p.apply(af.getExists()), s2p.apply(af.getMissing())));
+  };
+  public final static Function<ActivationOS, Optional<ActivationOSProxy>> proxyFromActOs = (o1) -> {
+    return ofNullable(o1).map(o -> new ActivationOSProxy(ofNullable(o.getArch()), ofNullable(o.getFamily()),
+        ofNullable(o.getName()), ofNullable(o.getVersion())));
+  };
+  public final static Function<ActivationProperty, Optional<ActivationPropertyProxy>> proxyFromActProperty = (p1) -> {
+    return ofNullable(p1).map(p -> new ActivationPropertyProxy(p.getName(), ofNullable(p.getValue())));
+  };
+  public final static Function<Activation, Optional<ActivationProxy>> proxyFromActivation = (a1) -> {
+    return ofNullable(a1).map(a -> new ActivationProxy(a.isActiveByDefault(), proxyFromActFile.apply(a.getFile()),
+        Optional.ofNullable(a.getJdk()), proxyFromActOs.apply(a.getOs()), proxyFromActProperty.apply(a.getProperty())));
+  };
+
+  public final static Function<RepositoryPolicy, Optional<RepositoryPolicyProxy>> proxyFromRepoPolicy = (p1) -> {
+    return Optional.ofNullable(p1).map(p -> {
+      UpdatePolicy upd = ofNullable(p.getUpdatePolicy()).map(String::toUpperCase)
+          // We have to check for "interval:xx" here
+          .map(g -> g.contains(UpdatePolicy.INTERVAL.name() + ":") ? UpdatePolicy.INTERVAL : UpdatePolicy.valueOf(g))
+          // Default is daily
+          .orElse(UpdatePolicy.DAILY);
+      return new RepositoryPolicyProxy(p.isEnabled(),
+          // Checksum Policy
+          ofNullable(p.getChecksumPolicy()).map(String::toUpperCase).map(ChecksumPolicy::valueOf)
+              .orElse(ChecksumPolicy.WARN),
+          // Update Policy
+          upd,
+          // Interval if available
+          (upd == UpdatePolicy.INTERVAL && p.getUpdatePolicy().contains(":"))
+              ? Integer.parseInt(p.getUpdatePolicy().split(":")[1])
+              : 0
+      // The end
+      );
+    });
+  };
+  public final static Function<Repository, RepositoryProxy> proxyFromRepo = (r) -> {
+    return new RepositoryProxy(r.getId(),
+        ofNullable(r.getLayout()).map(String::toUpperCase).map(Layout::valueOf).orElse(Layout.DEFAULT),
+        ofNullable(r.getName()), IBException.cet.withReturningTranslation(() -> new URL(r.getUrl())),
+        proxyFromRepoPolicy.apply(r.getReleases()), proxyFromRepoPolicy.apply(r.getSnapshots()));
+  };
+  public final static BiFunction<Boolean, Profile, ProfileProxy> proxyFromProfile = (active, p) -> {
+    return new ProfileProxy(p.getId(), active,
+        // Activation
+        proxyFromActivation.apply(p.getActivation()),
+        p.getPluginRepositories().stream().map(proxyFromRepo).collect(toList()), p.getProperties(),
+        p.getRepositories().stream().map(proxyFromRepo).collect(toList()));
+  };
+  public final static Function<Mirror, MirrorProxy> proxyFromMirror = (m) -> {
+    return new MirrorProxy(m.getId(),
+        ofNullable(m.getLayout()).map(String::toUpperCase).map(Layout::valueOf).orElse(Layout.DEFAULT),
+        Arrays.asList(m.getMirrorOf().split(",")),
+        Arrays.asList(ofNullable(m.getLayout()).orElse(Layout.DEFAULT.name())).stream().map(String::toUpperCase)
+            .map(Layout::valueOf).collect(toList()),
+        ofNullable(m.getName()), IBException.cet.withReturningTranslation(() -> new URL(m.getUrl())));
+  };
+  public final static Function<Proxy, ProxyProxy> proxyFromProxy = (p) -> {
+    return new ProxyProxy(p.getId(), p.getHost(),
+        Arrays.asList((ofNullable(p.getNonProxyHosts()).orElse("")).split("|")).stream().collect(toList()),
+        ofNullable(p.getPassword()), p.getPort(), ofNullable(p.getProtocol()).orElse("http"),
+        ofNullable(p.getUsername()), p.isActive());
+  };
+  public final static Function<Settings, SettingsProxy> proxyFromSettings = (s) -> {
+    return new SettingsProxy(s.isOffline(), Paths.get(s.getLocalRepository()),
+        ofNullable(s.getModelEncoding()).map(Charset::forName).orElse(IBUtils.UTF_8),
+        //Servers
+        s.getServers().stream().map(proxyFromServer).collect(toList()),
+        // Profiles
+        s.getProfiles().stream().map(pp -> proxyFromProfile.apply(s.getActiveProfiles().contains(pp.getId()), pp))
+            .collect(toList()),
+        // Mirrors
+        s.getMirrors().stream().map(proxyFromMirror).collect(toList()),
+        // PluginGroups
+        s.getPluginGroups().stream().collect(toList()),
+        // Proxies
+        s.getProxies().stream().map(proxyFromProxy).collect(toList()));
+  };
 
   public final static Function<SettingsBuildingResult, Settings> logProblems = (
       SettingsBuildingResult settingsResult) -> {

@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,13 +36,11 @@ import java.util.Properties;
 import java.util.UUID;
 
 import org.apache.maven.settings.Settings;
-import org.apache.maven.settings.building.DefaultSettingsBuilder;
 import org.apache.maven.settings.building.DefaultSettingsBuildingRequest;
 import org.apache.maven.settings.building.DefaultSettingsProblem;
 import org.apache.maven.settings.building.SettingsBuilder;
 import org.apache.maven.settings.building.SettingsBuildingResult;
 import org.apache.maven.settings.building.SettingsProblem;
-import org.apache.maven.settings.crypto.DefaultSettingsDecrypter;
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
 import org.codehaus.plexus.DefaultPlexusContainer;
@@ -50,7 +49,13 @@ import org.codehaus.plexus.classworlds.ClassWorld;
 import org.eclipse.sisu.space.SpaceModule;
 import org.eclipse.sisu.space.URLClassSpace;
 import org.eclipse.sisu.wire.WireModule;
+import org.infrastructurebuilder.util.DefaultPropertiesSupplier;
+import org.infrastructurebuilder.util.EnvSupplier;
+import org.infrastructurebuilder.util.HandCraftedEnvSupplier;
 import org.infrastructurebuilder.util.IBUtils;
+import org.infrastructurebuilder.util.PropertiesSupplier;
+import org.infrastructurebuilder.util.SettingsProxy;
+import org.infrastructurebuilder.util.SettingsSupplier;
 import org.infrastructurebuilder.util.config.WorkingPathSupplier;
 import org.junit.After;
 import org.junit.Before;
@@ -151,7 +156,7 @@ public class LSCTest {
 
   @Test
   public void testGet() {
-    Settings s1 = s.get();
+    SettingsProxy s1 = s.get();
     assertNotNull(s1);
     assertTrue(s1.getServers().size() > 2); // Literally no one would have less than 2 :D
   }
@@ -297,24 +302,24 @@ public class LSCTest {
     env.put(USER_SETTINGS_FILE, noLocalRepoSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
     DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
-    assertEquals(DefaultSettingsSupplier.DEFAULT_MAVEN_LOCAL_REPO.toAbsolutePath().toString(), l.get().getLocalRepository());
+    assertEquals(DefaultSettingsSupplier.DEFAULT_MAVEN_LOCAL_REPO.toAbsolutePath(), l.get().getLocalRepository());
   }
 
   @Test
   public void testWithLocalSettings() throws IOException {
-    Path ll = wps.get();
+    Path ll = Paths.get(System.getProperty("user.home")).resolve(".m2").resolve("repository");
     Path localcopy = wps.get().resolve(UUID.randomUUID().toString());
     String local = "<settings>" + "<offline>true</offline>" + "<pluginGroups/>" + "<proxies/>" + "<servers/>"
         + "<mirrors/>" + "<profiles/>" + "<localRepository>" + ll.toString() + "</localRepository></settings>";
 
     Map<String, String> env = new HashMap<>(defaultEnv);
     IBUtils.writeString(localcopy, local);
-    env.put(USER_SETTINGS_FILE, localcopy.toString());
+    env.put(USER_SETTINGS_FILE, localRepoSettings.toString());
     EnvSupplier en = new HandCraftedEnvSupplier(env);
     Map<String, String> m = en.get();
-    assertEquals(localcopy.toString(), m.get(USER_SETTINGS_FILE));
+    assertEquals(localRepoSettings.toString(), m.get(USER_SETTINGS_FILE));
     DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
-    assertEquals(ll.toString(), l.get().getLocalRepository());
+    assertEquals(ll, l.get().getLocalRepository());
 
   }
   @Test
@@ -332,7 +337,7 @@ public class LSCTest {
     Map<String, String> m = en.get();
     assertEquals(localcopy.toString(), m.get(USER_SETTINGS_FILE));
     DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
-    assertEquals(ll.toString(), l.get().getLocalRepository());
+    assertEquals(ll, l.get().getLocalRepository());
 
   }
 

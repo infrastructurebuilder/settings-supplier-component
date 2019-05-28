@@ -17,12 +17,23 @@ package org.infrastructurebuilder.utils.settings;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.maven.settings.Settings;
 import org.apache.maven.settings.io.DefaultSettingsReader;
 import org.apache.maven.settings.io.SettingsReader;
-import org.infrastructurebuilder.utils.settings.SettingsSupplier;
+import org.infrastructurebuilder.util.IBUtils;
+import org.infrastructurebuilder.util.MirrorProxy;
+import org.infrastructurebuilder.util.ProfileProxy;
+import org.infrastructurebuilder.util.ProxyProxy;
+import org.infrastructurebuilder.util.ServerProxy;
+import org.infrastructurebuilder.util.SettingsProxy;
+import org.infrastructurebuilder.util.SettingsSupplier;
 
 public class LocalModifiableSettingsSupplier implements SettingsSupplier {
 
@@ -39,8 +50,15 @@ public class LocalModifiableSettingsSupplier implements SettingsSupplier {
   }
 
   @Override
-  public Settings get() {
-    return s;
+  public SettingsProxy get() {
+    List<ProxyProxy> proxies = Collections.emptyList();
+    List<String> pluginGroups= Collections.emptyList();
+    List<MirrorProxy> mirrors= Collections.emptyList();
+    List<ProfileProxy> profiles= Collections.emptyList();
+    List<ServerProxy> servers= Collections.emptyList();
+    Charset modelEncoding  = IBUtils.UTF_8;
+    Path localRepo = Paths.get("target");
+    return new SettingsProxy(false, localRepo, modelEncoding, servers, profiles, mirrors, pluginGroups, proxies);
   }
 
 }
