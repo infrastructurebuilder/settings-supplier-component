@@ -69,7 +69,7 @@ public class LSCTest {
   private static final String TESTING = "testing";
   private static Path target;
   private static Path badSettings;
-  private static String gsval;
+//  private static String gsval;
   private static Map<String, String> defaultEnv;
   private static Path nonSettings;
   private static Path localRepoSettings;
@@ -89,7 +89,7 @@ public class LSCTest {
   private DefaultPlexusContainer c;
   private SettingsSupplier s;
   private HandCraftedEnvSupplier e;
-  private PropertiesSupplier p;
+//  private PropertiesSupplier p;
   private boolean isWindows;
   private org.codehaus.plexus.classworlds.ClassWorld kw;
   private ContainerConfiguration dpcreq;
@@ -140,7 +140,6 @@ public class LSCTest {
     s = c.lookup(SettingsSupplier.class, "default");
     dsb = c.lookup(SettingsBuilder.class);
     e = new HandCraftedEnvSupplier();
-    p = new DefaultPropertiesSupplier();
 
     Map<String, PasswordDecryptor> myDecrypters = new HashMap<>();
     new MyDefaultSecDispatcher(new MyDefaultPlexusCipher(), myDecrypters);
@@ -277,9 +276,9 @@ public class LSCTest {
   @Ignore
   @Test(expected = RuntimeException.class)
   public void testGetEffectiveSettingsWithNull() {
-    Map<String, String> env = new HashMap<>(defaultEnv);
-    EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
+//    Map<String, String> env = new HashMap<>(defaultEnv);
+//    EnvSupplier en = new HandCraftedEnvSupplier(env);
+//    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     DefaultSettingsSupplier.getEffectiveSettingsForRequest.apply(this.dsb, new DefaultSettingsBuildingRequest());
   }
 

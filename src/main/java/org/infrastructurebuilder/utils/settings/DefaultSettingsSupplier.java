@@ -263,7 +263,6 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
   public final static BiFunction<SettingsBuilder, SettingsBuildingRequest, Settings> getEffectiveSettingsForRequest = (
       settingsBuilder, settingsRequest) -> {
     try {
-      SettingsBuildingResult settingsResult;
       return logProblems.apply(settingsBuilder.build(settingsRequest));
     } catch (NullPointerException | SettingsBuildingException e) {
       throw new RuntimeException(e);
