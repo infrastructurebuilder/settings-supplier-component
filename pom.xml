@@ -20,11 +20,11 @@
   <parent>
     <groupId>org.infrastructurebuilder</groupId>
     <artifactId>ibparent</artifactId>
-    <version>8</version>
+    <version>10</version>
   </parent>
   <groupId>org.infrastructurebuilder.util</groupId>
   <artifactId>settings-supplier-component</artifactId>
-  <version>0.9.4-SNAPSHOT</version>
+  <version>0.10.0-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>${project.artifactId}</name>
   <description>Read settings.xml</description>
@@ -44,7 +44,7 @@
       <dependency>
         <groupId>org.infrastructurebuilder.util</groupId>
         <artifactId>ibcore-bom</artifactId>
-        <version>0.10.0.0</version>
+        <version>0.11.1.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -72,6 +72,7 @@
       <groupId>com.google.inject</groupId>
       <artifactId>guice</artifactId>
       <scope>test</scope>
+      <classifier>no_aop</classifier>
     </dependency>
     <dependency>
       <groupId>org.infrastructurebuilder</groupId>

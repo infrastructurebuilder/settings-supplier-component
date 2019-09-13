@@ -15,12 +15,22 @@
  */
 package org.infrastructurebuilder.utils.settings;
 
+import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.apache.maven.settings.building.DefaultSettingsBuilder;
 import org.apache.maven.settings.building.SettingsBuilder;
+import org.apache.maven.settings.io.SettingsReader;
+import org.apache.maven.settings.io.SettingsWriter;
+import org.apache.maven.settings.validation.SettingsValidator;
 
 @Named("my")
 final class MyDefaultSettingsBuilder extends DefaultSettingsBuilder implements SettingsBuilder {
+
+  @Inject
+  public MyDefaultSettingsBuilder(SettingsReader settingsReader, SettingsWriter settingsWriter,
+      SettingsValidator settingsValidator) {
+    super(settingsReader, settingsWriter, settingsValidator);
+  }
 
 }

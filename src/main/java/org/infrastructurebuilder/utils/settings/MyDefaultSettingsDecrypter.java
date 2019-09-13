@@ -15,12 +15,19 @@
  */
 package org.infrastructurebuilder.utils.settings;
 
+import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.apache.maven.settings.crypto.DefaultSettingsDecrypter;
 import org.apache.maven.settings.crypto.SettingsDecrypter;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
-@Named
+@Named("my")
 final class MyDefaultSettingsDecrypter extends DefaultSettingsDecrypter implements SettingsDecrypter {
+
+  @Inject
+  public MyDefaultSettingsDecrypter(SecDispatcher securityDispatcher) {
+    super(securityDispatcher);
+  }
 
 }

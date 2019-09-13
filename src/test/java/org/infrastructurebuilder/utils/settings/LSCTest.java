@@ -41,6 +41,12 @@ import org.apache.maven.settings.building.DefaultSettingsProblem;
 import org.apache.maven.settings.building.SettingsBuilder;
 import org.apache.maven.settings.building.SettingsBuildingResult;
 import org.apache.maven.settings.building.SettingsProblem;
+import org.apache.maven.settings.io.DefaultSettingsReader;
+import org.apache.maven.settings.io.DefaultSettingsWriter;
+import org.apache.maven.settings.io.SettingsReader;
+import org.apache.maven.settings.io.SettingsWriter;
+import org.apache.maven.settings.validation.DefaultSettingsValidator;
+import org.apache.maven.settings.validation.SettingsValidator;
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
 import org.codehaus.plexus.DefaultPlexusContainer;
@@ -62,6 +68,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.sonatype.plexus.components.sec.dispatcher.DefaultSecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.PasswordDecryptor;
 
 public class LSCTest {
@@ -143,8 +150,11 @@ public class LSCTest {
 
     Map<String, PasswordDecryptor> myDecrypters = new HashMap<>();
     new MyDefaultSecDispatcher(new MyDefaultPlexusCipher(), myDecrypters);
-    new MyDefaultSettingsBuilder();
-    new MyDefaultSettingsDecrypter();
+    SettingsReader sr = new DefaultSettingsReader();
+    SettingsWriter sw = new DefaultSettingsWriter();
+    SettingsValidator sv = new DefaultSettingsValidator();
+    new MyDefaultSettingsBuilder(sr,sw,sv);
+    new MyDefaultSettingsDecrypter(new DefaultSecDispatcher());
 
   }
 
