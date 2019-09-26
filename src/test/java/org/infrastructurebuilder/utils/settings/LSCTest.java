@@ -55,7 +55,6 @@ import org.codehaus.plexus.classworlds.ClassWorld;
 import org.eclipse.sisu.space.SpaceModule;
 import org.eclipse.sisu.space.URLClassSpace;
 import org.eclipse.sisu.wire.WireModule;
-import org.infrastructurebuilder.util.DefaultPropertiesSupplier;
 import org.infrastructurebuilder.util.EnvSupplier;
 import org.infrastructurebuilder.util.HandCraftedEnvSupplier;
 import org.infrastructurebuilder.util.IBUtils;
