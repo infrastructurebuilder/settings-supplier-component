@@ -98,6 +98,7 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
 
   private final Map<String, String> env;
   private final Settings settings;
+  private SettingsProxy sp;
 
   @Inject
   public DefaultSettingsSupplier(EnvSupplier envSupplier, @Named("default") PropertiesSupplier propSupplier,
@@ -152,7 +153,9 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
 
   @Override
   public SettingsProxy get() {
-    return proxyFromSettings.apply(settings);
+    if (this.sp == null)
+      this.sp = proxyFromSettings.apply(settings);
+    return this.sp;
   }
 
   public final static Function<Server, ServerProxy> proxyFromServer = (s2) -> {
@@ -233,7 +236,7 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
   public final static Function<Settings, SettingsProxy> proxyFromSettings = (s) -> {
     return new SettingsProxy(s.isOffline(), Paths.get(s.getLocalRepository()),
         ofNullable(s.getModelEncoding()).map(Charset::forName).orElse(IBUtils.UTF_8),
-        //Servers
+        // Servers
         s.getServers().stream().map(proxyFromServer).collect(toList()),
         // Profiles
         s.getProfiles().stream().map(pp -> proxyFromProfile.apply(s.getActiveProfiles().contains(pp.getId()), pp))
