@@ -165,6 +165,7 @@ public class LSCTest {
   @Test
   public void testGet() {
     SettingsProxy s1 = s.get();
+    assertTrue(s1 == s.get());
     assertNotNull(s1);
     assertTrue(s1.getServers().size() > 2); // Literally no one would have less than 2 :D
   }
