@@ -59,6 +59,7 @@ import org.infrastructurebuilder.util.ActivationFileProxy;
 import org.infrastructurebuilder.util.ActivationOSProxy;
 import org.infrastructurebuilder.util.ActivationPropertyProxy;
 import org.infrastructurebuilder.util.ActivationProxy;
+import org.infrastructurebuilder.util.BasicCredentials;
 import org.infrastructurebuilder.util.ChecksumPolicy;
 import org.infrastructurebuilder.util.EnvSupplier;
 import org.infrastructurebuilder.util.IBUtils;
@@ -272,4 +273,4 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
     }
   };
 
-}
+ }
