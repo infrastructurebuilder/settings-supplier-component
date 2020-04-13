@@ -15,6 +15,8 @@
  */
 package org.infrastructurebuilder.utils.settings;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -55,7 +57,7 @@ public class LocalModifiableSettingsSupplier implements SettingsSupplier {
     List<MirrorProxy> mirrors= Collections.emptyList();
     List<ProfileProxy> profiles= Collections.emptyList();
     List<ServerProxy> servers= Collections.emptyList();
-    Charset modelEncoding  = IBUtils.UTF_8;
+    Charset modelEncoding  = UTF_8;
     Path localRepo = Paths.get("target");
     return new SettingsProxy(false, localRepo, modelEncoding, servers, profiles, mirrors, pluginGroups, proxies);
   }

@@ -15,6 +15,7 @@
  */
 package org.infrastructurebuilder.utils.settings;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toList;
 
@@ -59,7 +60,6 @@ import org.infrastructurebuilder.util.ActivationFileProxy;
 import org.infrastructurebuilder.util.ActivationOSProxy;
 import org.infrastructurebuilder.util.ActivationPropertyProxy;
 import org.infrastructurebuilder.util.ActivationProxy;
-import org.infrastructurebuilder.util.BasicCredentials;
 import org.infrastructurebuilder.util.ChecksumPolicy;
 import org.infrastructurebuilder.util.EnvSupplier;
 import org.infrastructurebuilder.util.IBUtils;
@@ -236,7 +236,7 @@ public class DefaultSettingsSupplier implements SettingsSupplier {
   };
   public final static Function<Settings, SettingsProxy> proxyFromSettings = (s) -> {
     return new SettingsProxy(s.isOffline(), Paths.get(s.getLocalRepository()),
-        ofNullable(s.getModelEncoding()).map(Charset::forName).orElse(IBUtils.UTF_8),
+        ofNullable(s.getModelEncoding()).map(Charset::forName).orElse(UTF_8),
         // Servers
         s.getServers().stream().map(proxyFromServer).collect(toList()),
         // Profiles

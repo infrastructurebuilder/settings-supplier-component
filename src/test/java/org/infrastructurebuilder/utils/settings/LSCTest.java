@@ -142,6 +142,7 @@ public class LSCTest {
         new WireModule(new SpaceModule(new URLClassSpace(kw.getClassRealm(TESTING)))));
     isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
 
+    @SuppressWarnings("unused")
     PropertiesSupplier theseProps = c.lookup(PropertiesSupplier.class);
     s = c.lookup(SettingsSupplier.class, "default");
     dsb = c.lookup(SettingsBuilder.class);
@@ -297,7 +298,7 @@ public class LSCTest {
     Map<String, String> env = new HashMap<>(defaultEnv);
     badSettings.toFile().setReadable(false);
     EnvSupplier en = new HandCraftedEnvSupplier(env);
-    DefaultSettingsSupplier l = new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
+    new DefaultSettingsSupplier(en, () -> new Properties(), this.dsb);
     DefaultSettingsBuildingRequest sb = new DefaultSettingsBuildingRequest();
     sb.setUserProperties(new Properties());
     sb.setUserSettingsFile(nonSettings.toFile());
